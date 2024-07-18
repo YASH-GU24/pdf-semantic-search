@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Chunk Viewer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf_viewer.css">
+    <style>
+        #pdf-container {
+            width: 100%;
+            height: 600px;
+            overflow: auto;
+        }
+        .highlight {
+            background-color: yellow;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDF Chunk Viewer</h1>
+    <form id="pdf-form">
+        <label for="pdf-file-path">PDF File Path:</label>
+        <input type="text" id="pdf-file-path" name="pdf-file-path" required>
+        <label for="chunk-size">Chunk Size:</label>
+        <input type="number" id="chunk-size" name="chunk-size" value="1000" required>
+        <button type="submit">Get Chunks</button>
+    </form>
+    <div id="pdf-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.js"></script>
+    <script>
+        document.getElementById('pdf-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const pdfFilePath = document.getElementById('pdf-file-path').value;
+            const chunkSize = document.getElementById('chunk-size').value;
+
+            fetch('/get_chunks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pdf_file_path: pdfFilePath, chunk_size: chunkSize })
+            })
+            .then(response => response.json())
+            .then(chunks => {
+                const url = `/pdf/${pdfFilePath}`;
+                renderPDF(url, chunks);
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        function renderPDF(url, chunks) {
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.js';
+
+            const pdfContainer = document.getElementById('pdf-container');
+            pdfContainer.innerHTML = '';
+
+            pdfjsLib.getDocument(url).promise.then(function(pdf) {
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    pdf.getPage(i).then(function(page) {
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        pdfContainer.appendChild(canvas);
+
+                        page.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        }).promise.then(function() {
+                            highlightText(page, chunks, context, viewport);
+                        });
+                    });
+                }
+            });
+        }
+
+        function highlightText(page, chunks, context, viewport) {
+            page.getTextContent().then(function(textContent) {
+                textContent.items.forEach(function(item) {
+                    chunks.forEach(function(chunk) {
+                        if (chunk.page_number === page.pageNumber && item.str.includes(chunk.chunk_text)) {
+                            const textDiv = document.createElement('div');
+                            textDiv.className = 'highlight';
+                            textDiv.style.position = 'absolute';
+                            textDiv.style.left = `${item.transform[4]}px`;
+                            textDiv.style.top = `${item.transform[5] - item.height}px`;
+                            textDiv.style.fontSize = `${item.height}px`;
+                            textDiv.textContent = item.str;
+                            context.canvas.parentNode.appendChild(textDiv);
+                        }
+                    });
+                });
+            });
+        }
+    </script>
+</body>
+</html>

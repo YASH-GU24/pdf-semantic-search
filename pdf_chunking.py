@@ -1,7 +1,7 @@
 import fitz  # PyMuPDF
 import math
 
-def extract_chunks_from_pdf(pdf_file_path, chunk_size=1000):
+def extract_chunks_from_pdf(pdf_file_path, chunk_size=400):
     """
     Extracts text from a PDF file and splits it into smaller chunks.
     
@@ -23,24 +23,17 @@ def extract_chunks_from_pdf(pdf_file_path, chunk_size=1000):
         # Split the text into smaller chunks
         for i in range(0, len(text), chunk_size):
             chunk_text = text[i:i + chunk_size]
-            chunk_position = f"Characters {i}-{i + chunk_size}"
+            chunk_position = i  # Corrected chunk position
             
             chunk_data = {
                 "page_number": page_number + 1,  # Pages are 1-indexed
-                "text": chunk_text,
-                "position": chunk_position
+                "chunk_text": chunk_text,
+                "chunk_position": chunk_position
             }
             
             chunks.append(chunk_data)
     
     return chunks
 
-# Example usage
-pdf_file_path = "example.pdf"
-chunks = extract_chunks_from_pdf(pdf_file_path)
 
-for chunk in chunks:
-    print(f"Page Number: {chunk['page_number']}")
-    print(f"Chunk Position: {chunk['position']}")
-    print(f"Text: {chunk['text'][:200]}...")  # Print first 200 characters
-    print("\n---\n")
+
